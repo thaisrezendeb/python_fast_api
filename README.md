@@ -1,4 +1,14 @@
-#
+# Welcome to my first FastAPI project
+
+Hello! My name is Thaís Rezende and I'm a Telecommunication Engineer and System Analyst. I love programming and I have some knowing in Java, Python, Typescript, among others.
+
+This project is part of a self-study of backend technologies using Python as a basement. It's based on the official documentation available on https://fastapi.tiangolo.com/tutorial/
+
+If you want to replicate my development, follow the steps below to prepare your environment.
+
+## Clone this repository
+
+    git@github.com:thaisrezendeb/python_fast_api.git
 
 ## Running on Windows
 
@@ -26,10 +36,10 @@ Install libraries from _requirements.txt_
 
 ## API Documentation
 
-Documentation available on 
+Using **Swagger UI** interface available on 
 
     http://127.0.0.1:8000/docs
 
-Or 
+Using **ReDoc** interface available on
 
     http://127.0.0.1:8000/redoc
