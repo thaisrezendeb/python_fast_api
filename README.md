@@ -2,7 +2,7 @@
 
 Hello! My name is Thaís Rezende and I'm a Telecommunication Engineer and System Analyst. I love programming and I have some knowing in Java, Python, Typescript, among others.
 
-This project is part of a self-study of backend technologies using Python as a basement. It's based on the official documentation available on https://fastapi.tiangolo.com/tutorial/
+This project is part of a self-teach of backend technologies using Python as a basement. It's based on the official documentation available on https://fastapi.tiangolo.com/tutorial/
 
 If you want to replicate my development, follow the steps below to prepare your environment.
 
