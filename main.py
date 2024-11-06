@@ -1,7 +1,9 @@
 from enum import Enum
 from fastapi import FastAPI
+from fastapi import Query
 from pydantic import BaseModel
 from core.config import settings
+from typing import Annotated
 
 
 app = FastAPI(title=settings.PROJECT_NAME,
@@ -10,35 +12,60 @@ app = FastAPI(title=settings.PROJECT_NAME,
 
 class Item(BaseModel):
     name: str
+    description: str | None = None
     price: float
+    tax: float | None = None
     is_offer: bool | None = None      # Optional
 
 
 class EnumModelName(str, Enum):
-    MODEL_A = "model_a"
-    MODEL_B = "model_b"
-    MODEL_C = "model_c"
+    MODEL_A = "MODEL_A"
+    MODEL_B = "MODEL_B"
+    MODEL_C = "MODEL_C"
 
 
 @app.get("/")
 def hello_api():
-    return { "projectName": app.title,
-             "projectVersion": app.version }
+    return {"projectName": app.title,
+            "projectVersion": app.version}
+
+
+@app.get("/items/")
+async def read_items(q: Annotated[str | None, Query(max_length=50)] = None):
+    results = {"items": [{"item_id": "Foo"}, {"item_id": "Bar"}]}
+    if q:
+        results.update({"q": q})
+    return results
+
+
+@app.post("/items/")
+async def create_item(item: Item):
+    item_dict = item.model_dump()
+    if item.tax:
+        price_with_tax = item.price + item.tax
+        item_dict.update({
+            "price_with_tax": price_with_tax
+        })
+    return item_dict
 
 
 @app.get("/items/{item_id}")
 def find_item_by_item_id(item_id: int, q: str | None = None):
-    return { "itemId": item_id,
-             "q": q }
+    return {
+                "itemId": item_id,
+                "q": q
+            }
 
 
 @app.put("/items/{item_id}")
-def update_item(item_id: int, item: Item):
-    return {
+def update_item(item_id: int, item: Item, q: str | None = None):
+    result = {
              "itemId": item_id,
-             "itemName": item.name,
-             "itemPrice": item.price
+             **item.model_dump()
            }
+    if q:
+        result.update({"q": q})
+    return result
 
 
 @app.get("/models/{model_name}")
@@ -57,7 +84,7 @@ async def get_by_model_name(model_name: EnumModelName):
 
 @app.get("/files/{file_path:path}")
 async def read_file(file_path: str):
-    return { "filePath": file_path }
+    return {"filePath": file_path}
 
 
 @app.get("/users/{user_id}/items/{item_id}")
