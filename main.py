@@ -1,13 +1,13 @@
 from enum import Enum
 from fastapi import FastAPI
-from fastapi import Query
+from fastapi import Query, Path
 from pydantic import BaseModel
-from core.config import settings
+from core import config
 from typing import Annotated
 
 
-app = FastAPI(title=settings.PROJECT_NAME,
-              version=settings.PROJECT_VERSION)
+app = FastAPI(title=config.settings.PROJECT_NAME,
+              version=config.settings.PROJECT_VERSION)
 
 
 class Item(BaseModel):
@@ -31,7 +31,21 @@ def hello_api():
 
 
 @app.get("/items/")
-async def read_items(q: Annotated[str | None, Query(max_length=50)] = None):
+async def read_items(
+    q: Annotated[
+        str | None,
+        Query(
+            alias="item-query",
+            title="Query string",
+            description="Query string for the items to search in the database that have a good match",
+            min_length=3,
+            max_length=50,
+            pattern="^fixedquery$",
+            deprecated=True,
+            include_in_schema=True
+        )
+    ] = None
+):
     results = {"items": [{"item_id": "Foo"}, {"item_id": "Bar"}]}
     if q:
         results.update({"q": q})
@@ -50,11 +64,19 @@ async def create_item(item: Item):
 
 
 @app.get("/items/{item_id}")
-def find_item_by_item_id(item_id: int, q: str | None = None):
-    return {
-                "itemId": item_id,
-                "q": q
-            }
+def find_item_by_item_id(
+        *, # kwargs -  all the following parameters should be called as keyword arguments (key-value pairs) - to avoid error "Non-default argument follows default argument"
+        item_id: Annotated[int, Path(title="The ID of the item to get", gt=1, le=1000)], # path parameter will be always required even when default value is None
+        q: str,
+        size: Annotated[float, Query(gt=0, lt=10.5)]
+    ):
+    results =  { "itemId": item_id }
+    if q:
+        results.update({ "q": q })
+    if size:
+        results.update({ "size": size })
+
+    return results
 
 
 @app.put("/items/{item_id}")
