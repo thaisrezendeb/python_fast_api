@@ -1,13 +1,21 @@
 from enum import Enum
 from fastapi import FastAPI
 from fastapi import Query, Path
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from core import config
-from typing import Annotated
+from typing import Annotated, Literal
 
 
 app = FastAPI(title=config.settings.PROJECT_NAME,
               version=config.settings.PROJECT_VERSION)
+
+
+class FilterParams(BaseModel):
+    model_config = { "extra": "forbid" } # Forbid any extra param
+    limit: int = Field(100, gt=0, le=100)
+    offset: int = Field(0, ge=0)
+    order_by: Literal['created_at', 'updated_at'] = 'created_at'
+    tags: list[str] = []
 
 
 class Item(BaseModel):
@@ -66,7 +74,7 @@ async def create_item(item: Item):
 @app.get("/items/{item_id}")
 def find_item_by_item_id(
         *, # kwargs -  all the following parameters should be called as keyword arguments (key-value pairs) - to avoid error "Non-default argument follows default argument"
-        item_id: Annotated[int, Path(title="The ID of the item to get", gt=1, le=1000)], # path parameter will be always required even when default value is None
+        item_id: Annotated[int, Path(title="The ID of the item to get", gt=0, le=1000)], # path parameter will be always required even when default value is None
         q: str,
         size: Annotated[float, Query(gt=0, lt=10.5)]
     ):
@@ -91,7 +99,10 @@ def update_item(item_id: int, item: Item, q: str | None = None):
 
 
 @app.get("/models/{model_name}")
-async def get_by_model_name(model_name: EnumModelName):
+async def get_by_model_name(
+        model_name: EnumModelName, 
+        filter_query: Annotated[FilterParams, Query()] # Query parameters in a Pydantic model
+    ):
     message = "Selected model C"
     if model_name is EnumModelName.MODEL_A:
         message = "Selected model A"
@@ -100,7 +111,8 @@ async def get_by_model_name(model_name: EnumModelName):
 
     return {
         "modelName": model_name,
-        "message": message
+        "message": message,
+        "filter_query": filter_query
     }
 
 
