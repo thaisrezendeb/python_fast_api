@@ -20,8 +20,12 @@ class FilterParams(BaseModel):
 
 class Item(BaseModel):
     name: str
-    description: str | None = None
-    price: float
+    description: str | None = Field(
+        default=None, 
+        title="The description of the item",
+        max_length=300
+    )
+    price: float = Field(gt=0, description="The price must be greater than zero")
     tax: float | None = None
     is_offer: bool | None = None      # Optional
 
@@ -95,10 +99,10 @@ def find_item_by_item_id(
 @app.put("/items/{item_id}")
 def update_item(
         item_id: int, 
-        item: Item,
         user: User, 
         importance: Annotated[int, Body(gt=0)],     # Body parameter as a singular value (not Pydantic model)
-        q: str | None = None                        # query parameter
+        item: Item | None = None,
+        q: str | None = None                        # Query parameter
     ):
     result = {
              "itemId": item_id,
