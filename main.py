@@ -28,12 +28,28 @@ class Item(BaseModel):
     description: str | None = Field(
         default=None, 
         title="The description of the item",
-        max_length=300
+        max_length=300,
+        examples=["Some description to Item"]
     )
     price: float = Field(gt=0, description="The price must be greater than zero")
-    tax: float | None = None
+    tax: float | None = Field(default=None, examples=[13.2])    # Examples could be here
     is_offer: bool | None = None      # Optional
     images: list[Image] | None = None
+
+    # Examples could be also here
+    # model_config = {
+    #     "json_schema_extra": {
+    #         "examples": [
+    #             {
+    #                 "name": "Foo",
+    #                 "description": "A very nice Item",
+    #                 "price": 35.4,
+    #                 "tax": 3.2,
+    #                 "is_offer": True
+    #             }
+    #         ]
+    #     }
+    # }
 
 
 class Offer(BaseModel):
@@ -114,7 +130,55 @@ def update_item(
         item_id: int, 
         user: User, 
         importance: Annotated[int, Body(gt=0)],     # Body parameter as a singular value (not Pydantic model)
-        item: Item | None = None,
+        item: Annotated[
+            Item, 
+            Body(
+                # examples=[  # And examples could be here too
+                #     {
+                #         "name": "Foo",
+                #         "description": "A very nice Item",
+                #         "price": 35.4,
+                #         "tax": 3.2,
+                #     },
+                #     # Multiple examples
+                #     {
+                #         "name": "Bar",
+                #         "price": "35.4",
+                #     },
+                #     {
+                #         "name": "Baz",
+                #         "price": "thirty five point four",
+                #     },
+                # ],
+                openapi_examples={  # Hmmm.. didn't work to me. I don't know why...
+                    "normal": {
+                        "summary": "A normal example",
+                        "description": "A **normal** item works correctly.",
+                        "value": {
+                            "name": "Foo",
+                            "description": "A very nice Item",
+                            "price": 35.4,
+                            "tax": 3.2,
+                        },
+                    },
+                    "converted": {
+                        "summary": "An example with converted data",
+                        "description": "FastAPI can convert price `strings` to actual `numbers` automatically",
+                        "value": {
+                            "name": "Bar",
+                            "price": "35.4",
+                        },
+                    },
+                    "invalid": {
+                        "summary": "Invalid data is rejected with an error",
+                        "value": {
+                            "name": "Baz",
+                            "price": "thirty five point four",
+                        },
+                    },
+                },
+            )
+        ],
         q: str | None = None                        # Query parameter
     ):
     result = {
