@@ -4,6 +4,8 @@ from fastapi import Query, Path, Body
 from pydantic import BaseModel, Field, HttpUrl
 from core import config
 from typing import Annotated, Literal
+from datetime import datetime, time, timedelta
+from uuid import UUID
 
 
 app = FastAPI(title=config.settings.PROJECT_NAME,
@@ -127,7 +129,7 @@ def find_item_by_item_id(
 
 @app.put("/items/{item_id}")
 def update_item(
-        item_id: int, 
+        item_id: UUID, 
         user: User, 
         importance: Annotated[int, Body(gt=0)],     # Body parameter as a singular value (not Pydantic model)
         item: Annotated[
@@ -179,13 +181,25 @@ def update_item(
                 },
             )
         ],
+        start_datetime: Annotated[datetime, Body()],
+        end_datetime: Annotated[datetime, Body()],
+        process_after: Annotated[timedelta, Body()],
+        repeat_at: Annotated[time | None, Body()] = None,
         q: str | None = None                        # Query parameter
     ):
+    start_process = start_datetime + process_after
+    duration = end_datetime - start_process
     result = {
              "itemId": item_id,
              #  **item.model_dump()
              "user": user,
-             "importance": importance
+             "importance": importance,
+             "start_datetime": start_datetime,
+             "end_datetime": end_datetime,
+             "process_after": process_after,
+             "repeat_at": repeat_at,
+             "start_process": start_process,
+             "duration": duration,
            }
     if q:
         result.update({"q": q})
