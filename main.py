@@ -1,6 +1,6 @@
 from enum import Enum
 from fastapi import FastAPI
-from fastapi import Query, Path
+from fastapi import Query, Path, Body
 from pydantic import BaseModel, Field
 from core import config
 from typing import Annotated, Literal
@@ -24,6 +24,11 @@ class Item(BaseModel):
     price: float
     tax: float | None = None
     is_offer: bool | None = None      # Optional
+
+
+class User(BaseModel):
+    username: str
+    full_name: str | None = None
 
 
 class EnumModelName(str, Enum):
@@ -61,7 +66,7 @@ async def read_items(
 
 
 @app.post("/items/")
-async def create_item(item: Item):
+async def create_item(item: Annotated[Item, Body(embed=True)]):    # Embed a body parameter, only if you have a single body parameter
     item_dict = item.model_dump()
     if item.tax:
         price_with_tax = item.price + item.tax
@@ -88,13 +93,25 @@ def find_item_by_item_id(
 
 
 @app.put("/items/{item_id}")
-def update_item(item_id: int, item: Item, q: str | None = None):
+def update_item(
+        item_id: int, 
+        item: Item,
+        user: User, 
+        importance: Annotated[int, Body(gt=0)],     # Body parameter as a singular value (not Pydantic model)
+        q: str | None = None                        # query parameter
+    ):
     result = {
              "itemId": item_id,
-             **item.model_dump()
+             #  **item.model_dump()
+             "user": user,
+             "importance": importance
            }
     if q:
         result.update({"q": q})
+
+    if item:
+        result.update({ "item": item.model_dump() })
+
     return result
 
 
