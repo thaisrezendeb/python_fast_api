@@ -1,7 +1,7 @@
 from enum import Enum
 from fastapi import FastAPI
 from fastapi import Query, Path, Body
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, HttpUrl
 from core import config
 from typing import Annotated, Literal
 
@@ -15,7 +15,12 @@ class FilterParams(BaseModel):
     limit: int = Field(100, gt=0, le=100)
     offset: int = Field(0, ge=0)
     order_by: Literal['created_at', 'updated_at'] = 'created_at'
-    tags: list[str] = []
+    tags: set[str] = set()
+
+
+class Image(BaseModel):
+    url: HttpUrl
+    name: str
 
 
 class Item(BaseModel):
@@ -28,6 +33,14 @@ class Item(BaseModel):
     price: float = Field(gt=0, description="The price must be greater than zero")
     tax: float | None = None
     is_offer: bool | None = None      # Optional
+    images: list[Image] | None = None
+
+
+class Offer(BaseModel):
+    name: str
+    description: str | None = None
+    total_price: float
+    items: list[Item]
 
 
 class User(BaseModel):
@@ -169,3 +182,26 @@ async def get_items_by_user_id_and_item_id(
         )
 
     return item
+
+
+@app.post("/offers/")
+async def create_offer(offer: Offer):
+    return offer
+
+
+@app.post("/images/multiple/")
+async def create_multiple_images(images: list[Image]):
+    for image in images:
+        image.name += "_received"
+    return images
+
+
+@app.post("/index-weights/")
+async def create_index_weights(weights: dict[int, float]):
+    # Something like this
+    # {
+    #     "0": 0,
+    #     "1": 0.2,
+    #     "2": 1
+    # }
+    return weights
