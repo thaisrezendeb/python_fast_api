@@ -1,6 +1,6 @@
 from enum import Enum
 from fastapi import FastAPI
-from fastapi import Query, Path, Body
+from fastapi import Query, Path, Body, Cookie, Header
 from pydantic import BaseModel, Field, HttpUrl
 from core import config
 from typing import Annotated, Literal
@@ -66,6 +66,24 @@ class User(BaseModel):
     full_name: str | None = None
 
 
+class Cookies(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    session_id: str
+    social_media_1_tracker: str | None = None
+    social_media_2_tracker: str | None = None
+
+
+class CommonHeaders(BaseModel):
+    model_config = {"extra": "forbid"}
+    
+    host: str
+    save_data: bool
+    if_modified_since: str | None = None
+    traceparent: str | None = None
+    x_tag: list[str] = []
+
+
 class EnumModelName(str, Enum):
     MODEL_A = "MODEL_A"
     MODEL_B = "MODEL_B"
@@ -92,11 +110,25 @@ async def read_items(
             deprecated=True,
             include_in_schema=True
         )
-    ] = None
+    ] = None,
+    ads_id: Annotated[str | None, Cookie()] = None,
+    user_agent: Annotated[str | None, Header()] = None,     # Automatically onverts "_" into "-", so the real header param is user-agent
+    strange_header: Annotated[str | None, Header(
+        convert_underscores=False                           # Use this if you don't want to autoconvert underscores to hyphens
+    )] = None ,
+    x_token: Annotated[list[str] | None, Header()] = None
 ):
     results = {"items": [{"item_id": "Foo"}, {"item_id": "Bar"}]}
     if q:
         results.update({"q": q})
+    if ads_id:
+        results.update({ "ads_id": ads_id })
+    if user_agent:
+        results.update({ "user_agent": user_agent })
+    if strange_header:
+        results.update({ "strange_header": strange_header })
+    if x_token: 
+        results.update({ "X-Token values:": x_token })
     return results
 
 
@@ -116,14 +148,19 @@ def find_item_by_item_id(
         *, # kwargs -  all the following parameters should be called as keyword arguments (key-value pairs) - to avoid error "Non-default argument follows default argument"
         item_id: Annotated[int, Path(title="The ID of the item to get", gt=0, le=1000)], # path parameter will be always required even when default value is None
         q: str,
-        size: Annotated[float, Query(gt=0, lt=10.5)]
+        size: Annotated[float, Query(gt=0, lt=10.5)],
+        cookies: Annotated[Cookies, Cookie()],
+        headers: Annotated[CommonHeaders, Header()]
     ):
     results =  { "itemId": item_id }
     if q:
         results.update({ "q": q })
     if size:
         results.update({ "size": size })
-
+    if cookies:
+        results.update({ "cookies": cookies })
+    if headers:
+        results.update({ "headers": headers })
     return results
 
 
