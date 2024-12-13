@@ -4,7 +4,7 @@ from fastapi import Query, Path, Body, Cookie, Header
 from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel, EmailStr, Field, HttpUrl
 from core import config
-from typing import Annotated, Literal, Any
+from typing import Annotated, Literal, Any, Union
 from datetime import datetime, time, timedelta
 from uuid import UUID
 
@@ -56,6 +56,24 @@ class Item(BaseModel):
     # }
 
 
+class BaseItem(BaseModel):
+    name: str | None = None
+    description: str | None = None
+
+
+class ItemList(BaseItem):
+    pass
+
+
+class CarItem(BaseItem):
+    type: str = "car"
+
+
+class PlaneItem(BaseItem):
+    type: str = "plane"
+    size: int
+
+
 class Offer(BaseModel):
     name: str
     description: str | None = None
@@ -71,6 +89,10 @@ class BaseUser(BaseModel):
 
 class UserIn(BaseUser):
     password: str
+
+
+class UserDb(BaseUser):
+    hashed_password: str
     
 
 class Cookies(BaseModel):
@@ -148,6 +170,17 @@ async def create_item(item: Annotated[Item, Body(embed=True)]):    # Embed a bod
             "price_with_tax": price_with_tax
         })
     return item_dict
+
+
+items_l = [
+    {"name": "Foo", "description": "There comes my hero"},
+    {"name": "Red", "description": "It's my aeroplane"},
+]
+
+
+@app.get("/items/list", response_model=list[ItemList])
+async def read_items_list():
+    return items_l
 
 
 @app.get("/items/{item_id}")
@@ -280,6 +313,21 @@ async def read_item_public_data(item_id: str):
     return items[item_id]
 
 
+items_t = {
+    "item1": {"description": "All my friends drive a low rider", "type": "car"},
+    "item2": {
+        "description": "Music is my aeroplane, it's my aeroplane",
+        "type": "plane",
+        "size": 5,
+    },
+}
+
+
+@app.get("/items/{item_id}/transport", response_model=Union[PlaneItem, CarItem])
+async def read_item_transport(item_id: str):
+    return items_t[item_id]
+
+
 @app.get("/models/{model_name}")
 async def get_by_model_name(
         model_name: EnumModelName, 
@@ -352,12 +400,30 @@ async def create_index_weights(weights: dict[int, float]):
     #     "1": 0.2,
     #     "2": 1
     # }
-    return weights
+    return 
 
 
-@app.post("/user/")
-async def create_user(user: UserIn) -> BaseUser:
-    return user
+@app.get("/keyword-weights/", response_model=dict[str, float])
+async def read_keyword_weights():
+    return {"foo": 2.3, "bar": 3.4}
+
+
+def fake_password_hasher(raw_password: str):
+    return "supersecret" + raw_password
+
+
+def fake_save_user(user_in: UserIn):
+    hashed_password = fake_password_hasher(user_in.password)
+    user_in_db = UserDb(**user_in.model_dump(),                 # **user_in.model_dump() is an unwrap - it will pass all attributes as key: value, avoiding refactoring when some change occurs in the base class
+                        hashed_password=hashed_password)        # Changing a key explicitly
+    print("User saved! ..not really")
+    return user_in_db
+
+
+@app.post("/user/", response_model=BaseUser)
+async def create_user(user: UserIn):
+    user_saved = fake_save_user(user)
+    return user_saved
 
 
 @app.get("/portal", response_model=None)
