@@ -1,9 +1,10 @@
 from enum import Enum
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
 from fastapi import Query, Path, Body, Cookie, Header
-from pydantic import BaseModel, Field, HttpUrl
+from fastapi.responses import JSONResponse, RedirectResponse
+from pydantic import BaseModel, EmailStr, Field, HttpUrl
 from core import config
-from typing import Annotated, Literal
+from typing import Annotated, Literal, Any
 from datetime import datetime, time, timedelta
 from uuid import UUID
 
@@ -37,6 +38,7 @@ class Item(BaseModel):
     tax: float | None = Field(default=None, examples=[13.2])    # Examples could be here
     is_offer: bool | None = None      # Optional
     images: list[Image] | None = None
+    tags: list[str] = []
 
     # Examples could be also here
     # model_config = {
@@ -61,10 +63,15 @@ class Offer(BaseModel):
     items: list[Item]
 
 
-class User(BaseModel):
+class BaseUser(BaseModel):
     username: str
     full_name: str | None = None
+    email: EmailStr
 
+
+class UserIn(BaseUser):
+    password: str
+    
 
 class Cookies(BaseModel):
     model_config = {"extra": "forbid"}
@@ -96,7 +103,7 @@ def hello_api():
             "projectVersion": app.version}
 
 
-@app.get("/items/")
+@app.get("/items/", response_model_exclude_unset=True)
 async def read_items(
     q: Annotated[
         str | None,
@@ -167,7 +174,7 @@ def find_item_by_item_id(
 @app.put("/items/{item_id}")
 def update_item(
         item_id: UUID, 
-        user: User, 
+        user: BaseUser, 
         importance: Annotated[int, Body(gt=0)],     # Body parameter as a singular value (not Pydantic model)
         item: Annotated[
             Item, 
@@ -223,7 +230,7 @@ def update_item(
         process_after: Annotated[timedelta, Body()],
         repeat_at: Annotated[time | None, Body()] = None,
         q: str | None = None                        # Query parameter
-    ):
+    ) -> Any:
     start_process = start_datetime + process_after
     duration = end_datetime - start_process
     result = {
@@ -245,6 +252,32 @@ def update_item(
         result.update({ "item": item.model_dump() })
 
     return result
+
+
+items = {
+    "foo": {"name": "Foo", "price": 50.2},
+    "bar": {"name": "Bar", "description": "The Bar fighters", "price": 62, "tax": 20.2},
+    "baz": {
+        "name": "Baz",
+        "description": "There goes my baz",
+        "price": 50.2,
+        "tax": 10.5,
+    },
+}
+
+
+@app.get(
+    "/items/{item_id}/name",
+    response_model=Item,
+    response_model_include={"name", "description"},
+)
+async def read_item_name(item_id: str):
+    return items[item_id]
+
+
+@app.get("/items/{item_id}/public", response_model=Item, response_model_exclude={"tax"})
+async def read_item_public_data(item_id: str):
+    return items[item_id]
 
 
 @app.get("/models/{model_name}")
@@ -300,12 +333,12 @@ async def get_items_by_user_id_and_item_id(
 
 
 @app.post("/offers/")
-async def create_offer(offer: Offer):
+async def create_offer(offer: Offer) -> Offer:
     return offer
 
 
 @app.post("/images/multiple/")
-async def create_multiple_images(images: list[Image]):
+async def create_multiple_images(images: list[Image]) -> list[Image]:
     for image in images:
         image.name += "_received"
     return images
@@ -320,3 +353,21 @@ async def create_index_weights(weights: dict[int, float]):
     #     "2": 1
     # }
     return weights
+
+
+@app.post("/user/")
+async def create_user(user: UserIn) -> BaseUser:
+    return user
+
+
+@app.get("/portal", response_model=None)
+async def get_portal(teleport: bool = False) -> Response | dict:
+    if teleport:
+        return RedirectResponse(url="https://www.youtube.com/watch?v=dQw4w9WgXcQ")
+    # return JSONResponse(content={"message": "Here's your interdimensional portal."})
+    return {"message": "Here's your interdimensional portal."}
+
+
+@app.get("/teleport")
+async def get_teleport() -> RedirectResponse:
+    return RedirectResponse(url="https://www.youtube.com/watch?v=dQw4w9WgXcQ")
