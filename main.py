@@ -3,6 +3,7 @@ from os import name
 from turtle import st
 from fastapi import FastAPI, Request, Response, status, Form, File, UploadFile, HTTPException
 from fastapi import Query, Path, Body, Cookie, Header
+from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse, RedirectResponse, PlainTextResponse
 from fastapi.exceptions import RequestValidationError
 from pydantic import BaseModel, EmailStr, Field, HttpUrl
@@ -14,6 +15,13 @@ from uuid import UUID
 
 app = FastAPI(title=config.settings.PROJECT_NAME,
               version=config.settings.PROJECT_VERSION)
+
+
+class Tags(Enum):
+    items = "items"
+    files = "files"
+    users = "users"
+    offers = "offers"
 
 
 class FilterParams(BaseModel):
@@ -142,8 +150,12 @@ async def my_custom_exception_handler(request: Request, exc: MyCustomException):
 
 
 @app.exception_handler(RequestValidationError)
-async def validation_exception_handler(request, exc):
-    return PlainTextResponse(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    #return PlainTextResponse(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content=jsonable_encoder({"detail": exc.errors(), "body": exc.body}),
+    )
 
 
 @app.get("/")
@@ -152,7 +164,7 @@ def hello_api():
             "projectVersion": app.version}
 
 
-@app.get("/items/", response_model_exclude_unset=True)
+@app.get("/items/", response_model_exclude_unset=True, tags=[Tags.items])
 async def read_items(
     q: Annotated[
         str | None,
@@ -188,8 +200,23 @@ async def read_items(
     return results
 
 
-@app.post("/items/", status_code=status.HTTP_201_CREATED)
+@app.post(
+        "/items/", 
+        status_code=status.HTTP_201_CREATED, 
+        tags=[Tags.items], 
+        summary="Create an item",
+        response_description="The created item"
+    )
 async def create_item(item: Annotated[Item, Body(embed=True)]):    # Embed a body parameter, only if you have a single body parameter
+    """
+    Create an item with all the information:
+
+    - **name**: each item must have a name
+    - **description**: a long description
+    - **price**: required
+    - **tax**: if the item doesn't have tax, you can omit this
+    - **tags**: a set of unique tag strings for this item
+    """
     item_dict = item.model_dump()
     if item.tax:
         price_with_tax = item.price + item.tax
@@ -205,12 +232,12 @@ items_l = [
 ]
 
 
-@app.get("/items/list", response_model=list[ItemList])
+@app.get("/items/list", response_model=list[ItemList], tags=[Tags.items])
 async def read_items_list():
     return items_l
 
 
-@app.get("/items/{item_id}")
+@app.get("/items/{item_id}", tags=[Tags.items])
 def find_item_by_item_id(
         *, # kwargs -  all the following parameters should be called as keyword arguments (key-value pairs) - to avoid error "Non-default argument follows default argument"
         item_id: Annotated[int, Path(title="The ID of the item to get", gt=0, le=1000)], # path parameter will be always required even when default value is None
@@ -219,11 +246,6 @@ def find_item_by_item_id(
         cookies: Annotated[Cookies, Cookie()],
         headers: Annotated[CommonHeaders, Header()]
 ):
-    if item_id == 3:
-        raise HTTPException(
-            status_code=status.HTTP_418_IM_A_TEAPOT,
-            detail="Nope! I don't like 3."
-        )
     results =  { "itemId": item_id }
     if q:
         results.update({ "q": q })
@@ -236,7 +258,7 @@ def find_item_by_item_id(
     return results
 
 
-@app.put("/items/{item_id}")
+@app.put("/items/{item_id}", tags=[Tags.items])
 def update_item(
         item_id: UUID, 
         user: BaseUser, 
@@ -335,6 +357,7 @@ items = {
     "/items/{item_id}/name",
     response_model=Item,
     response_model_include={"name", "description"},
+    tags=[Tags.items]
 )
 async def read_item_name(item_id: str):
     if item_id not in items:
@@ -346,7 +369,7 @@ async def read_item_name(item_id: str):
     return items[item_id]
 
 
-@app.get("/items/{item_id}/public", response_model=Item, response_model_exclude={"tax"})
+@app.get("/items/{item_id}/public", response_model=Item, response_model_exclude={"tax"}, tags=[Tags.items])
 async def read_item_public_data(item_id: str):
     if item_id not in items:
         raise MyCustomException(name=item_id)
@@ -363,7 +386,7 @@ items_t = {
 }
 
 
-@app.get("/items/{item_id}/transport", response_model=Union[PlaneItem, CarItem])
+@app.get("/items/{item_id}/transport", response_model=Union[PlaneItem, CarItem], tags=[Tags.items])
 async def read_item_transport(item_id: str):
     return items_t[item_id]
 
@@ -386,12 +409,12 @@ async def get_by_model_name(
     }
 
 
-@app.get("/files/{file_path:path}")
+@app.get("/files/{file_path:path}", tags=[Tags.files])
 async def read_file(file_path: str):
     return {"filePath": file_path}
 
 
-@app.get("/users/{user_id}/items/{item_id}")
+@app.get("/users/{user_id}/items/{item_id}", tags=[Tags.users, Tags.items])
 async def get_items_by_user_id_and_item_id(
         user_id: int,
         item_id: str,
@@ -420,19 +443,19 @@ async def get_items_by_user_id_and_item_id(
     return item
 
 
-@app.post("/offers/")
+@app.post("/offers/", tags=[Tags.offers])
 async def create_offer(offer: Offer) -> Offer:
     return offer
 
 
-@app.post("/images/multiple/")
+@app.post("/files/images/multiple/", tags=[Tags.files])
 async def create_multiple_images(images: list[Image]) -> list[Image]:
     for image in images:
         image.name += "_received"
     return images
 
 
-@app.post("/index-weights/")
+@app.post("/index-weights/", deprecated=True)
 async def create_index_weights(weights: dict[int, float]):
     # Something like this
     # {
@@ -443,7 +466,7 @@ async def create_index_weights(weights: dict[int, float]):
     return 
 
 
-@app.get("/keyword-weights/", response_model=dict[str, float])
+@app.get("/keyword-weights/", response_model=dict[str, float], deprecated=True)
 async def read_keyword_weights():
     return {"foo": 2.3, "bar": 3.4}
 
@@ -460,7 +483,7 @@ def fake_save_user(user_in: UserIn):
     return user_in_db
 
 
-@app.post("/user/", response_model=BaseUser)
+@app.post("/user/", response_model=BaseUser, tags=[Tags.users])
 async def create_user(user: UserIn):
     user_saved = fake_save_user(user)
     return user_saved
@@ -489,7 +512,7 @@ async def login_form(data: Annotated[FormData, Form()]):
     return data
 
 
-@app.post("/file/")
+@app.post("/file/", tags=[Tags.files])
 async def create_file(file: Annotated[bytes | None, File(description="A file read as bytes")] = None):
     if not file:
         return { "message": "No upload file sent" }
@@ -497,22 +520,37 @@ async def create_file(file: Annotated[bytes | None, File(description="A file rea
         return { "file_size": len(file) }
 
 
-@app.post("/files/")
+@app.post("/files/", tags=[Tags.files])
 async def create_files(files: Annotated[list[bytes] | None, File()] = None):
     return {"file_sizes": [len(file) for file in files]}
 
 
-@app.post("/uploadfile/")
+@app.post(
+        "/uploadfile/", 
+        tags=[Tags.files],
+        summary="Upload a file",
+        description="Upload a single file"
+    )
 async def create_upload_file(file: Annotated[UploadFile, File(description="A file read as UploadFile")]):
     return { "filename": file.filename }
 
 
-@app.post("/uploadfiles/")
+@app.post(
+        "/uploadfiles/", 
+        tags=[Tags.files],
+        summary="Upload files",
+        description="Upload a list of files"
+    )
 async def create_upload_files(files: Annotated[list[UploadFile], File(description="A file read as UploadFile")]):
     return { "filename": [file.filename for file in files] }
 
 
-@app.post("/files_and_forms/")
+@app.post(
+        "/files_and_forms/", 
+        tags=[Tags.files],
+        summary="Upload files and forms",
+        description="Allows to upload files and add some form"
+    )
 async def create_files_and_forms(
     file_a: Annotated[bytes, File()],
     file_b: Annotated[UploadFile, File()],
