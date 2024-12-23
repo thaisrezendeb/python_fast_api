@@ -1,5 +1,6 @@
 from enum import Enum
-from fastapi import FastAPI, Response
+from turtle import st
+from fastapi import FastAPI, Response, status, Form
 from fastapi import Query, Path, Body, Cookie, Header
 from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel, EmailStr, Field, HttpUrl
@@ -119,6 +120,12 @@ class EnumModelName(str, Enum):
     MODEL_C = "MODEL_C"
 
 
+class FormData(BaseModel):
+    username: str
+    password: str
+    model_config = {"extra": "forbid"}
+    
+
 @app.get("/")
 def hello_api():
     return {"projectName": app.title,
@@ -161,7 +168,7 @@ async def read_items(
     return results
 
 
-@app.post("/items/")
+@app.post("/items/", status_code=status.HTTP_201_CREATED)
 async def create_item(item: Annotated[Item, Body(embed=True)]):    # Embed a body parameter, only if you have a single body parameter
     item_dict = item.model_dump()
     if item.tax:
@@ -437,3 +444,13 @@ async def get_portal(teleport: bool = False) -> Response | dict:
 @app.get("/teleport")
 async def get_teleport() -> RedirectResponse:
     return RedirectResponse(url="https://www.youtube.com/watch?v=dQw4w9WgXcQ")
+
+
+@app.post("/login/")
+async def login(username: Annotated[str, Form()], password: Annotated[str, Form()]):
+    return username
+
+
+@app.post("/login2/")
+async def login_form(data: Annotated[FormData, Form()]):
+    return data
