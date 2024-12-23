@@ -1,6 +1,6 @@
 from enum import Enum
 from turtle import st
-from fastapi import FastAPI, Response, status, Form
+from fastapi import FastAPI, Response, status, Form, File, UploadFile
 from fastapi import Query, Path, Body, Cookie, Header
 from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel, EmailStr, Field, HttpUrl
@@ -124,7 +124,7 @@ class FormData(BaseModel):
     username: str
     password: str
     model_config = {"extra": "forbid"}
-    
+
 
 @app.get("/")
 def hello_api():
@@ -454,3 +454,39 @@ async def login(username: Annotated[str, Form()], password: Annotated[str, Form(
 @app.post("/login2/")
 async def login_form(data: Annotated[FormData, Form()]):
     return data
+
+
+@app.post("/file/")
+async def create_file(file: Annotated[bytes | None, File(description="A file read as bytes")] = None):
+    if not file:
+        return { "message": "No upload file sent" }
+    else:
+        return { "file_size": len(file) }
+
+
+@app.post("/files/")
+async def create_files(files: Annotated[list[bytes] | None, File()] = None):
+    return {"file_sizes": [len(file) for file in files]}
+
+
+@app.post("/uploadfile/")
+async def create_upload_file(file: Annotated[UploadFile, File(description="A file read as UploadFile")]):
+    return { "filename": file.filename }
+
+
+@app.post("/uploadfiles/")
+async def create_upload_files(files: Annotated[list[UploadFile], File(description="A file read as UploadFile")]):
+    return { "filename": [file.filename for file in files] }
+
+
+@app.post("/files_and_forms/")
+async def create_files_and_forms(
+    file_a: Annotated[bytes, File()],
+    file_b: Annotated[UploadFile, File()],
+    token: Annotated[str, Form()]
+):
+    return {
+        "file_a_size": len(file_a),
+        "token": token,
+        "file_b_content_type": file_b.content_type
+    }
