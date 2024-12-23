@@ -1,8 +1,10 @@
 from enum import Enum
+from os import name
 from turtle import st
-from fastapi import FastAPI, Response, status, Form, File, UploadFile
+from fastapi import FastAPI, Request, Response, status, Form, File, UploadFile, HTTPException
 from fastapi import Query, Path, Body, Cookie, Header
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse, PlainTextResponse
+from fastapi.exceptions import RequestValidationError
 from pydantic import BaseModel, EmailStr, Field, HttpUrl
 from core import config
 from typing import Annotated, Literal, Any, Union
@@ -126,6 +128,24 @@ class FormData(BaseModel):
     model_config = {"extra": "forbid"}
 
 
+class MyCustomException(Exception):
+    def __init__(self, name: str):
+        self.name = name
+
+
+@app.exception_handler(MyCustomException)
+async def my_custom_exception_handler(request: Request, exc: MyCustomException):
+    return JSONResponse(
+        status_code=status.HTTP_418_IM_A_TEAPOT,
+        content={ "message": f"Oops! {exc.name} did something. There goes a rainbow..." }
+    )
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request, exc):
+    return PlainTextResponse(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+
+
 @app.get("/")
 def hello_api():
     return {"projectName": app.title,
@@ -198,7 +218,12 @@ def find_item_by_item_id(
         size: Annotated[float, Query(gt=0, lt=10.5)],
         cookies: Annotated[Cookies, Cookie()],
         headers: Annotated[CommonHeaders, Header()]
-    ):
+):
+    if item_id == 3:
+        raise HTTPException(
+            status_code=status.HTTP_418_IM_A_TEAPOT,
+            detail="Nope! I don't like 3."
+        )
     results =  { "itemId": item_id }
     if q:
         results.update({ "q": q })
@@ -312,11 +337,19 @@ items = {
     response_model_include={"name", "description"},
 )
 async def read_item_name(item_id: str):
+    if item_id not in items:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, 
+            detail="Item not found",
+            headers={"X-Error": "There goes my error"}
+        )
     return items[item_id]
 
 
 @app.get("/items/{item_id}/public", response_model=Item, response_model_exclude={"tax"})
 async def read_item_public_data(item_id: str):
+    if item_id not in items:
+        raise MyCustomException(name=item_id)
     return items[item_id]
 
 
