@@ -1,6 +1,4 @@
 from enum import Enum
-from os import name
-from turtle import st
 from fastapi import FastAPI, Request, Response, status, Form, File, UploadFile, HTTPException
 from fastapi import Query, Path, Body, Cookie, Header
 from fastapi.encoders import jsonable_encoder
@@ -237,6 +235,18 @@ async def read_items_list():
     return items_l
 
 
+items = {
+    "foo": {"name": "Foo", "price": 50.2},
+    "bar": {"name": "Bar", "description": "The Bar fighters", "price": 62, "tax": 20.2},
+    "baz": {
+        "name": "Baz",
+        "description": "There goes my baz",
+        "price": 50.2,
+        "tax": 10.5,
+    },
+}
+
+
 @app.get("/items/{item_id}", tags=[Tags.items])
 def find_item_by_item_id(
         *, # kwargs -  all the following parameters should be called as keyword arguments (key-value pairs) - to avoid error "Non-default argument follows default argument"
@@ -341,16 +351,14 @@ def update_item(
     return result
 
 
-items = {
-    "foo": {"name": "Foo", "price": 50.2},
-    "bar": {"name": "Bar", "description": "The Bar fighters", "price": 62, "tax": 20.2},
-    "baz": {
-        "name": "Baz",
-        "description": "There goes my baz",
-        "price": 50.2,
-        "tax": 10.5,
-    },
-}
+@app.patch("/items/{item_id}", response_model=Item, tags=[Tags.items])
+async def patch_items(item_id: str, item: Item):
+    stored_item_data = items[item_id]
+    stored_item_model = Item(**stored_item_data)
+    update_data = item.model_dump(exclude_unset=True)
+    updated_item = stored_item_model.model_copy(update=update_data)
+    items[item_id] = jsonable_encoder(updated_item)
+    return updated_item
 
 
 @app.get(
