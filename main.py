@@ -1,5 +1,5 @@
 from enum import Enum
-from fastapi import FastAPI, Request, Response, status, Form, File, UploadFile, HTTPException
+from fastapi import Depends, FastAPI, Request, Response, status, Form, File, UploadFile, HTTPException
 from fastapi import Query, Path, Body, Cookie, Header
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse, RedirectResponse, PlainTextResponse
@@ -11,8 +11,22 @@ from datetime import datetime, time, timedelta
 from uuid import UUID
 
 
-app = FastAPI(title=config.settings.PROJECT_NAME,
-              version=config.settings.PROJECT_VERSION)
+async def verify_token(x_token: Annotated[str, Header()]):
+    if x_token != "fake-super-secret-token":
+        raise HTTPException(status_code=400, detail="X-Token header invalid")
+
+
+async def verify_key(x_key: Annotated[str, Header()]):
+    if x_key != "fake-super-secret-key":
+        raise HTTPException(status_code=400, detail="X-Key header invalid")
+    return x_key
+
+
+app = FastAPI(
+    title=config.settings.PROJECT_NAME,
+    version=config.settings.PROJECT_VERSION,
+    #dependencies=[Depends(verify_token), Depends(verify_key)] # Dependency to all endpoints
+)
 
 
 class Tags(Enum):
@@ -139,6 +153,48 @@ class MyCustomException(Exception):
         self.name = name
 
 
+class CommonQueryParams:
+    def __init__(self, q: str | None = None, skip: int = 0, limit: int = 100):
+        self.q = q
+        self.skip = skip
+        self.limit = limit
+        
+
+class InternalError(Exception):
+    pass
+
+
+def get_username():
+    try:
+        yield "Rick"
+    except InternalError:
+        print("We don't swallow the internal error here, we raise again 😎")
+        raise
+
+
+async def common_parameters(
+        q: str | None = None, 
+        skip: int = 0, 
+        limit: int = 100):
+    return {"q": q, "skip": skip, "limit": limit}
+
+
+CommonsDep = Annotated[dict, Depends(common_parameters)]
+
+
+def query_extractor(q: str | None = None):
+    return q
+
+
+def query_or_cookie_extractor(
+        q: Annotated[str, Depends(query_extractor)],
+        last_query: Annotated[str, None, Cookie()] = None
+):
+    if not q:
+        return last_query
+    return q
+
+
 @app.exception_handler(MyCustomException)
 async def my_custom_exception_handler(request: Request, exc: MyCustomException):
     return JSONResponse(
@@ -196,6 +252,31 @@ async def read_items(
     if x_token: 
         results.update({ "X-Token values:": x_token })
     return results
+
+
+fake_items_db = [{"item_name": "Foo"}, {"item_name": "Bar"}, {"item_name": "Baz"}]
+
+
+@app.get("/items/params", tags=[Tags.items])
+async def read_items_by_params(commons: Annotated[CommonQueryParams, Depends()]):
+    response = {}
+    if commons.q:
+        response.update({"q": commons.q})
+    items = fake_items_db[commons.skip : commons.skip + commons.limit]
+    response.update({"items": items})
+    return response
+
+
+@app.get("/items/query", tags=[Tags.items])
+async def read_query(
+    query_or_default: Annotated[str, Depends(query_or_cookie_extractor, use_cache=False)],
+):
+    return {"q_or_cookie": query_or_default}
+
+
+@app.get("/items/token", tags=[Tags.items], dependencies=[Depends(verify_token), Depends(verify_key)])
+async def read_items():
+    return [{"item": "Foo"}, {"item": "Bar"}]
 
 
 @app.post(
@@ -399,6 +480,19 @@ async def read_item_transport(item_id: str):
     return items_t[item_id]
 
 
+@app.get("/items/{item_id}/username", tags=[Tags.items])
+def get_item(item_id: str, username: Annotated[str, Depends(get_username)]):
+    if item_id == "portal-gun":
+        raise InternalError(
+            f"The portal gun is too dangerous to be owned by {username}"
+        )
+    if item_id != "plumbus":
+        raise HTTPException(
+            status_code=404, detail="Item not found, there's only a plumbus here"
+        )
+    return item_id
+
+
 @app.get("/models/{model_name}")
 async def get_by_model_name(
         model_name: EnumModelName, 
@@ -497,12 +591,20 @@ async def create_user(user: UserIn):
     return user_saved
 
 
+@app.get("/users/", tags=[Tags.users])
+async def read_users(commons: CommonsDep):
+    return commons
+
+
 @app.get("/portal", response_model=None)
-async def get_portal(teleport: bool = False) -> Response | dict:
+async def get_portal(commons: CommonsDep, teleport: bool = False) -> Response | dict:
     if teleport:
         return RedirectResponse(url="https://www.youtube.com/watch?v=dQw4w9WgXcQ")
     # return JSONResponse(content={"message": "Here's your interdimensional portal."})
-    return {"message": "Here's your interdimensional portal."}
+    return {
+                "message": "Here's your interdimensional portal.",
+                "commons": commons
+           }
 
 
 @app.get("/teleport")
