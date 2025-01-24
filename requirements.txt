@@ -1,6 +1,8 @@
 email-validator
-enum
+#enum
 fastapi[standard]
+passlib[bcrypt]
 pydantic
+pyjwt[crypto]
 python-multipart
 typing
