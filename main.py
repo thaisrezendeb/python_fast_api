@@ -1,9 +1,10 @@
-from enum import Enum
 from fastapi import Depends, FastAPI, Request, Response, status, Form, File, UploadFile, HTTPException
 from fastapi import Query, Path, Body, Cookie, Header
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse, RedirectResponse, PlainTextResponse
 from fastapi.exceptions import RequestValidationError
+from fastapi.security import OAuth2PasswordBearer
+from enum import Enum
 from pydantic import BaseModel, EmailStr, Field, HttpUrl
 from core import config
 from typing import Annotated, Literal, Any, Union
@@ -27,6 +28,9 @@ app = FastAPI(
     version=config.settings.PROJECT_VERSION,
     #dependencies=[Depends(verify_token), Depends(verify_key)] # Dependency to all endpoints
 )
+
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 
 class Tags(Enum):
@@ -286,7 +290,10 @@ async def read_items():
         summary="Create an item",
         response_description="The created item"
     )
-async def create_item(item: Annotated[Item, Body(embed=True)]):    # Embed a body parameter, only if you have a single body parameter
+async def create_item(
+    item: Annotated[Item, Body(embed=True)], # Embed a body parameter, only if you have a single body parameter
+    token: Annotated[str, Depends(oauth2_scheme)]
+):
     """
     Create an item with all the information:
 
