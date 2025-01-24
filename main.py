@@ -4,6 +4,7 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse, RedirectResponse, PlainTextResponse
 from fastapi.exceptions import RequestValidationError
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi.middleware.cors import CORSMiddleware
 from enum import Enum
 from passlib.context import CryptContext
 from pydantic import BaseModel, EmailStr, Field, HttpUrl
@@ -56,6 +57,22 @@ app = FastAPI(
     title=config.settings.PROJECT_NAME,
     version=config.settings.PROJECT_VERSION,
     #dependencies=[Depends(verify_token), Depends(verify_key)] # Dependency to all endpoints
+)
+
+
+origins = [
+    "http://localhost.tiangolo.com",
+    "https://localhost.tiangolo.com",
+    "http://localhost",
+    "http://localhost:8080",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
