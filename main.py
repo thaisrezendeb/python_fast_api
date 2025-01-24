@@ -12,6 +12,7 @@ from typing import Annotated, Literal, Any, Union
 from datetime import datetime, time, timedelta, timezone
 from uuid import UUID
 import jwt
+import time as t
 from jwt.exceptions import InvalidTokenError
 
 
@@ -312,6 +313,15 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         content=jsonable_encoder({"detail": exc.errors(), "body": exc.body}),
     )
+
+
+@app.middleware("http")
+async def add_process_time_header(request: Request, call_next):
+    start_time = t.perf_counter()
+    response = await call_next(request)
+    process_time = t.perf_counter() - start_time
+    response.headers["X-Process-Time"] = str(process_time)
+    return response
 
 
 @app.get("/")
