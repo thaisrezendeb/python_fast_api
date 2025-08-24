@@ -1,8 +1,10 @@
 email-validator
 #enum
 fastapi[standard]
+flake8
 passlib[bcrypt]
 pydantic
 pyjwt[crypto]
 python-multipart
+sqlmodel
 typing
