@@ -12,9 +12,9 @@ class Offer(BaseModel):
     items: list[Item]
 
 
-router = APIRouter()
+router = APIRouter(tags=[Tags.offers])
 
 
-@router.post("/offers/", tags=[Tags.offers])
+@router.post("/offers/")
 async def create_offer(offer: Offer) -> Offer:
     return offer

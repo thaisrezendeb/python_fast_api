@@ -1,6 +1,7 @@
 from enum import Enum
 from typing import Annotated
 from fastapi import APIRouter, Query
+from sqlmodel import SQLModel, Field as FieldSQL
 
 from core.utils import FilterParams, Tags
 
@@ -11,10 +12,17 @@ class EnumModelName(str, Enum):
     MODEL_C = "MODEL_C"
 
 
-router = APIRouter()
+class Hero(SQLModel, table=True):
+    id: int | None = FieldSQL(default=None, primary_key=True)
+    name: str = FieldSQL(index=True)
+    age: int | None = FieldSQL(default=None, index=True)
+    secret_name: str
 
 
-@router.get("/models/{model_name}", tags=[Tags.models])
+router = APIRouter(tags=[Tags.models])
+
+
+@router.get("/models/{model_name}")
 async def get_by_model_name(
         model_name: EnumModelName,
         filter_query: Annotated[FilterParams, Query()]  # Query parameters in a Pydantic model

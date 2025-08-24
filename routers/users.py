@@ -89,20 +89,20 @@ fake_users_db = {
 }
 
 
-router = APIRouter()
+router = APIRouter(tags=[Tags.users])
 
 
-@router.post("/user/", response_model=BaseUser, tags=[Tags.users])
+@router.post("/user/", response_model=BaseUser)
 async def create_user(user: UserIn):
     user_saved = fake_save_user(user)
     return user_saved
 
 
-@router.get("/users/", tags=[Tags.users])
+@router.get("/users/")
 async def read_users(commons: CommonsDep):
     return commons
 
 
-@router.get("/users/me", tags=[Tags.users])
+@router.get("/users/me")
 async def read_users_me(current_user: Annotated[BaseUser, Depends(get_current_active_user)]):
     return current_user

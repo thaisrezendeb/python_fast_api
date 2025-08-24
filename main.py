@@ -3,12 +3,11 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from sqlmodel import SQLModel, Field as FieldSQL
 from core import config
 import time as t
 from core.db import create_db_and_tables
 from core.utils import CommonsDep, MyCustomException
-from routers import files, items, models, offers, users, credentials
+from routers import files, heroes, items, models, offers, users, credentials
 
 """
     ----------------------------------------------------------------
@@ -45,13 +44,6 @@ app.add_middleware(
 )
 
 
-class Hero(SQLModel, table=True):
-    id: int | None = FieldSQL(default=None, primary_key=True)
-    name: str = FieldSQL(index=True)
-    age: int | None = FieldSQL(default=None, index=True)
-    secret_name: str
-
-
 @app.exception_handler(MyCustomException)
 async def my_custom_exception_handler(request: Request, exc: MyCustomException):
     return JSONResponse(
@@ -84,6 +76,7 @@ app.include_router(items.router)
 app.include_router(files.router)
 app.include_router(offers.router)
 app.include_router(models.router)
+app.include_router(heroes.router)
 
 
 @app.get("/")

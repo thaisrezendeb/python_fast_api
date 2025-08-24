@@ -87,10 +87,10 @@ items_t = {
 }
 
 
-router = APIRouter()
+router = APIRouter(tags=[Tags.items])
 
 
-@router.get("/items/", response_model_exclude_unset=True, tags=[Tags.items])
+@router.get("/items/", response_model_exclude_unset=True)
 async def read_items(
     q: Annotated[
         str | None,
@@ -126,7 +126,7 @@ async def read_items(
     return results
 
 
-@router.get("/items/params", tags=[Tags.items])
+@router.get("/items/params")
 async def read_items_by_params(commons: Annotated[CommonQueryParams, Depends()]):
     response = {}
     if commons.q:
@@ -136,14 +136,15 @@ async def read_items_by_params(commons: Annotated[CommonQueryParams, Depends()])
     return response
 
 
-@router.get("/items/query", tags=[Tags.items])
+@router.get("/items/query")
 async def read_query(
     query_or_default: Annotated[str, Depends(query_or_cookie_extractor, use_cache=False)],
 ):
     return {"q_or_cookie": query_or_default}
 
 
-@router.get("/items/token", tags=[Tags.items], dependencies=[Depends(verify_token), Depends(verify_key)])
+@router.get("/items/token",
+            dependencies=[Depends(verify_token), Depends(verify_key)])
 async def read_items_simple():
     return [{"item": "Foo"}, {"item": "Bar"}]
 
@@ -151,7 +152,6 @@ async def read_items_simple():
 @router.post(
         "/items/",
         status_code=status.HTTP_201_CREATED,
-        tags=[Tags.items],
         summary="Create an item",
         response_description="The created item"
 )
@@ -177,12 +177,12 @@ async def create_item(
     return item_dict
 
 
-@router.get("/items/list", response_model=list[ItemList], tags=[Tags.items])
+@router.get("/items/list", response_model=list[ItemList])
 async def read_items_list():
     return items_l
 
 
-@router.get("/items/{item_id}", tags=[Tags.items])
+@router.get("/items/{item_id}")
 def find_item_by_item_id(
         *,  # kwargs -  all the following parameters should be called as keyword arguments
             # (key-value pairs) - to avoid error "Non-default argument follows default argument"
@@ -206,7 +206,7 @@ def find_item_by_item_id(
     return results
 
 
-@router.put("/items/{item_id}", tags=[Tags.items])
+@router.put("/items/{item_id}")
 def update_item(
         item_id: UUID,
         user: BaseUser,
@@ -289,7 +289,7 @@ def update_item(
     return result
 
 
-@router.patch("/items/{item_id}", response_model=Item, tags=[Tags.items])
+@router.patch("/items/{item_id}", response_model=Item)
 async def patch_items(item_id: str, item: Item):
     stored_item_data = items[item_id]
     stored_item_model = Item(**stored_item_data)
@@ -302,8 +302,7 @@ async def patch_items(item_id: str, item: Item):
 @router.get(
     "/items/{item_id}/name",
     response_model=Item,
-    response_model_include={"name", "description"},
-    tags=[Tags.items]
+    response_model_include={"name", "description"}
 )
 async def read_item_name(item_id: str):
     if item_id not in items:
@@ -315,19 +314,19 @@ async def read_item_name(item_id: str):
     return items[item_id]
 
 
-@router.get("/items/{item_id}/public", response_model=Item, response_model_exclude={"tax"}, tags=[Tags.items])
+@router.get("/items/{item_id}/public", response_model=Item, response_model_exclude={"tax"})
 async def read_item_public_data(item_id: str):
     if item_id not in items:
         raise MyCustomException(name=item_id)
     return items[item_id]
 
 
-@router.get("/items/{item_id}/transport", response_model=Union[PlaneItem, CarItem], tags=[Tags.items])
+@router.get("/items/{item_id}/transport", response_model=Union[PlaneItem, CarItem])
 async def read_item_transport(item_id: str):
     return items_t[item_id]
 
 
-@router.get("/items/{item_id}/username", tags=[Tags.items])
+@router.get("/items/{item_id}/username")
 def get_item(item_id: str, username: Annotated[str, Depends(get_user)]):
     if item_id == "portal-gun":
         raise InternalError(

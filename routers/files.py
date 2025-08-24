@@ -10,22 +10,22 @@ class Image(BaseModel):
     name: str
 
 
-router = APIRouter()
+router = APIRouter(tags=[Tags.files])
 
 
-@router.get("/files/{file_path:path}", tags=[Tags.files])
+@router.get("/files/{file_path:path}")
 async def read_file(file_path: str):
     return {"filePath": file_path}
 
 
-@router.post("/files/images/multiple/", tags=[Tags.files])
+@router.post("/files/images/multiple/")
 async def create_multiple_images(images: list[Image]) -> list[Image]:
     for image in images:
         image.name += "_received"
     return images
 
 
-@router.post("/file/", tags=[Tags.files])
+@router.post("/file/")
 async def create_file(file: Annotated[bytes | None, File(description="A file read as bytes")] = None):
     if not file:
         return {"message": "No upload file sent"}
@@ -33,14 +33,13 @@ async def create_file(file: Annotated[bytes | None, File(description="A file rea
         return {"file_size": len(file)}
 
 
-@router.post("/files/", tags=[Tags.files])
+@router.post("/files/")
 async def create_files(files: Annotated[list[bytes] | None, File()] = None):
     return {"file_sizes": [len(file) for file in files]}
 
 
 @router.post(
         "/uploadfile/",
-        tags=[Tags.files],
         summary="Upload a file",
         description="Upload a single file"
     )
@@ -50,7 +49,6 @@ async def create_upload_file(file: Annotated[UploadFile, File(description="A fil
 
 @router.post(
         "/uploadfiles/",
-        tags=[Tags.files],
         summary="Upload files",
         description="Upload a list of files"
     )
@@ -60,7 +58,6 @@ async def create_upload_files(files: Annotated[list[UploadFile], File(descriptio
 
 @router.post(
         "/files_and_forms/",
-        tags=[Tags.files],
         summary="Upload files and forms",
         description="Allows to upload files and add some form"
     )

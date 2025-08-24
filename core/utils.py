@@ -15,6 +15,7 @@ class Tags(Enum):
     users = "users"
     offers = "offers"
     models = "models"
+    heroes = "heroes"
 
 
 class FilterParams(BaseModel):

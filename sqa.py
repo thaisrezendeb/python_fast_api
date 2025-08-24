@@ -8,7 +8,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.orm import aliased
 from sqlalchemy import func, desc, cast, literal_column, type_coerce, and_, or_, union_all, JSON
 from sqlalchemy.dialects import postgresql, oracle, mysql
-import json
+
 
 engine = create_engine("sqlite+pysqlite:///:memory:", echo=True)
 

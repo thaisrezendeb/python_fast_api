@@ -43,7 +43,7 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None):
     return encoded_jwt
 
 
-router = APIRouter()
+router = APIRouter(tags=["credentials"])
 
 
 @router.post("/token")
